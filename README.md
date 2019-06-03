@@ -8,6 +8,8 @@ docs/           detailed documentation
 
 system was developed in Windows environment, for Linux, change "\\" in paths to "/"
 
+Check: http://dai.fmph.uniba.sk/courses/dtv/index.php/ILampa
+
 Usage:
 
 1. edit your lamp schedule and place it into schedules/ folder
