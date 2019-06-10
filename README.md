@@ -1,10 +1,10 @@
 # lamp
 Intelligent Lamp Project
 
-src/java/       sources of compiler of lamp schedules to arduino sources
-src/arduino/    arduino source code for lamp
-schedules/      example lamp schedules
-docs/           detailed documentation
+* src/java/       sources of compiler of lamp schedules to arduino sources
+* src/arduino/    arduino source code for lamp
+* schedules/      example lamp schedules
+* docs/           detailed documentation
 
 system was developed in Windows environment, for Linux, change "\\" in paths to "/"
 
@@ -18,8 +18,14 @@ Usage:
 4. load src/arduino/lamp/lamp.ino to arduino and upload sketch to lamp's arduino
 5. test your schedule
 
+Requirements:
+
+* Real Time Clock Arduino library RTClib, https://github.com/adafruit/RTClib
+* LiquidCrystal_I2C Arduino library, https://github.com/johnrickman/LiquidCrystal_I2C
+
 
 Example schedule is in schedules/modesQuickPresentation
+
 Set your Alarm 4 minutes after you turn the lamp on.
 
 You should see the following scenario:
