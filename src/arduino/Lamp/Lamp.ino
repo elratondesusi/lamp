@@ -55,8 +55,11 @@ int prevAnalogState = 0;
 bool alarmOn = false;
 uint8_t hourAlarm;
 uint8_t minuteAlarm;
+uint8_t hourAlarm2 = -1;
+uint8_t minuteAlarm2 = -1;
 bool todayAlarm = false;
 int volume = 30;
+int timesAlarmPosponed = -1;
 
 uint8_t hourTime;
 uint8_t minuteTime;
@@ -70,7 +73,7 @@ uint8_t song_number = 1;
 #define BACK_MENU -999
 
 // configuration od menu
-char* menu [] = {
+const char* menu [] = {
   "Intensity",                       //0 -1
   "Color",                           //1     1
   "Mode",                            //2     2
@@ -291,13 +294,25 @@ void setMode(int modeNum) {
 void alarmControler(){
   if(alarmOn){
     DateTime nowTime = RTC.now();
-    if(nowTime.hour() == hourAlarm && nowTime.minute() == minuteAlarm && nowTime.second() == 0){
+    if((nowTime.hour() == hourAlarm && nowTime.minute() == minuteAlarm && nowTime.second() == 0) ||
+    (nowTime.hour() == hourAlarm2 && nowTime.minute() == minuteAlarm2 && nowTime.second() == 0)){
       if(!todayAlarm){
         if (alarm[currentMode] != -1) {  
           changeMode(alarm[currentMode]);
         }
         //alarmSTART  
         //alarmOFF
+        if(timesAlarmPosponed < 3) {
+          minuteAlarm2 = nowTime.minute();
+          hourAlarm2 = nowTime.hour();
+          plusXmin(&hourAlarm2, &minuteAlarm2, earlyAlarm / 2);
+          timesAlarmPosponed++;
+        } else {
+          minuteAlarm2 = -1;
+          hourAlarm2 = -1;
+          timesAlarmPosponed = 0;
+        }        
+        
         todayAlarm = true;
         lcd.clear();
         lcd.setCursor(1,0);
@@ -306,6 +321,7 @@ void alarmControler(){
         playMusic();     
       }
    } else {
+    
      todayAlarm = false;
    }
   }
@@ -608,7 +624,10 @@ void idle() {
         changeMode(atMode[currentMode][3]);
     }
     if (alarm[currentMode] != -1) {
-       if(nowTime.hour() == hourAlarm && nowTime.minute() + earlyAlarm == minuteAlarm && nowTime.second() == 0){
+       int m = nowTime.minute();
+       int h = nowTime.hour();
+       plusXmin(&h,&m, earlyAlarm);
+       if(h == hourAlarm && m == minuteAlarm && nowTime.second() == 0){
         changeMode(alarm[currentMode]);
        }
     }
@@ -617,20 +636,41 @@ void idle() {
     int action = checkAction();
     switch(action){
       case 1: 
-      case 2: if(digitalRead(MP3_BUSY_PIN) == 0) mp3_set_volume(0); if(touch[currentMode] != -1) changeMode(touch[currentMode]); break;
-      case 4: if(digitalRead(MP3_BUSY_PIN) == 0) mp3_set_volume(0); if(turn[currentMode] != -1) changeMode(turn[currentMode]); break;
+      case 2: if(digitalRead(MP3_BUSY_PIN) == 0){ 
+          mp3_set_volume(0); 
+          minuteAlarm2 = nowTime.minute();
+          hourAlarm2 = nowTime.hour();
+          plusXmin(&hourAlarm2, &minuteAlarm2, earlyAlarm / 2);
+        }
+        if(touch[currentMode] != -1){
+           changeMode(touch[currentMode]);
+        }
+        break;
+      case 4: if(digitalRead(MP3_BUSY_PIN) == 0) mp3_set_volume(0);
+        hourAlarm2 = -1;
+        minuteAlarm2 = -1;
+        timesAlarmPosponed = 0;
+        if(turn[currentMode] != -1 ){
+          changeMode(turn[currentMode]); 
+        }
+        break; 
       case 0: if(digitalRead(MP3_BUSY_PIN) == 0) mp3_set_volume(0); while (readButton()) delay(50);  return;
-    }
+    
     if (nowSec - lastTimeShown >= 1) {
       displayTime();
       lastTimeShown = RTC.now().secondstime();
     }
     alarmControler();
   }
-
-  
   Serial.println("back to menu");
 }
+
+void plusXmin(int *h, int *m, int x) {
+  int dayMin = *h * 60 + *m + x;
+  *h = (dayMin / 60) % 24;
+  *m = dayMin % 60;    
+}
+
 void mainMenu() {
   prevAnalogState = analogRead(A0);
   printCurrentMenuItem();
