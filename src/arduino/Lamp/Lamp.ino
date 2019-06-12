@@ -80,7 +80,7 @@ const char* menu [] = {
   "Alarm & Time",                    //3     3
 
   "White light",                     //4 -3
-  "White light withblue filter",     //5 -4
+  "White light with blue filter",    //5 -4
   "Red Green Blue",                  //6 -5
   "Blue",                            //7 -10
   "Green",                           //8 -11
@@ -269,7 +269,7 @@ void setColor(int colorNum) {
   //analofWrite pre kazdy z troch pinov
   switch (colorNum) {
     case -3: setRGB(255, 255, 255); break;
-    case -4: setRGB(255, 255, 0x95); break;
+    case -4: setRGB(255, 255, 0); break;
     case -5: selectRGB(); break;
 
     case -10: setRGB(0, 0, 255); break;
