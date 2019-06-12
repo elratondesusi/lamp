@@ -22,7 +22,7 @@ Requirements:
 
 * Real Time Clock Arduino library RTClib, https://github.com/adafruit/RTClib
 * LiquidCrystal_I2C Arduino library, https://github.com/johnrickman/LiquidCrystal_I2C
-
+* JRE and JDK need to be installed on the computer, please edit the first line of compile-java.bat to contain the path to the javac.exe
 
 Example schedule is in schedules/modesQuickPresentation
 
