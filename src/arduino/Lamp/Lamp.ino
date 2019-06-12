@@ -53,10 +53,10 @@ int prevAnalogState = 0;
 
 //alarm
 bool alarmOn = false;
-uint8_t hourAlarm;
-uint8_t minuteAlarm;
-uint8_t hourAlarm2 = -1;
-uint8_t minuteAlarm2 = -1;
+int8_t hourAlarm;
+int8_t minuteAlarm;
+int8_t hourAlarm2 = -1;
+int8_t minuteAlarm2 = -1;
 bool todayAlarm = false;
 int volume = 30;
 int timesAlarmPosponed = -1;
@@ -624,8 +624,8 @@ void idle() {
         changeMode(atMode[currentMode][3]);
     }
     if (alarm[currentMode] != -1) {
-       int m = nowTime.minute();
-       int h = nowTime.hour();
+       int8_t m = nowTime.minute();
+       int8_t h = nowTime.hour();
        plusXmin(&h,&m, earlyAlarm);
        if(h == hourAlarm && m == minuteAlarm && nowTime.second() == 0){
         changeMode(alarm[currentMode]);
@@ -654,8 +654,10 @@ void idle() {
           changeMode(turn[currentMode]); 
         }
         break; 
-      case 0: if(digitalRead(MP3_BUSY_PIN) == 0) mp3_set_volume(0); while (readButton()) delay(50);  return;
-    
+      case 0: if(digitalRead(MP3_BUSY_PIN) == 0) mp3_set_volume(0); 
+        while (readButton()) delay(50);  
+        return;
+    }
     if (nowSec - lastTimeShown >= 1) {
       displayTime();
       lastTimeShown = RTC.now().secondstime();
@@ -665,10 +667,10 @@ void idle() {
   Serial.println("back to menu");
 }
 
-void plusXmin(int *h, int *m, int x) {
+void plusXmin(int8_t *h, int8_t *m, int8_t x) {
   int dayMin = *h * 60 + *m + x;
-  *h = (dayMin / 60) % 24;
-  *m = dayMin % 60;    
+  *h = (int8_t)((dayMin / 60) % 24);
+  *m = (int8_t)(dayMin % 60);    
 }
 
 void mainMenu() {
