@@ -32,8 +32,8 @@ You should see the following scenario:
 
 * depending on the time of the day, the lamp will start in one of the main modes (circadian, afternoon, evening, night, sleep)
 * it advances to the next mode (in the order mentioned above) in 30 seconds, except of the night -> sleep, which takes 1 minute, always changing colours:
-** white in circadian,
-** yellow in the afternoon,
+- white in circadian,
+- yellow in the afternoon,
 ** white in the evening,
 ** yellow -> red, and then red -> black in the night,
 ** black in the sleep mode.
