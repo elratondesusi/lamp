@@ -585,17 +585,17 @@ void enterMenuItem() {
 }
 
 void nextMenuItem() {
-//  int optionalBack = currentMenu > 0;
+  int optionalBack = currentMenu > 0;
   menuItem++;
-  menuItem %= menuLen[currentMenu]; // + optionalBack;
+  menuItem %= menuLen[currentMenu] + optionalBack;
   printCurrentMenuItem();
 }
 
 void prevMenuItem() {
-  //int optionalBack = currentMenu > 0;
+  int optionalBack = currentMenu > 0;
   menuItem--;
   if (menuItem < 0)
-    menuItem = menuLen[currentMenu] - 1; //+ optionalBack;
+    menuItem = menuLen[currentMenu] - 1 + optionalBack;
   printCurrentMenuItem();
 }
 
