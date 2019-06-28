@@ -29,6 +29,7 @@ extern int8_t turn [];
 extern int8_t touch [];
 extern int8_t loop3 [];
 extern uint8_t earlyAlarm;
+extern int8_t *settingX;
 
 const int okButton = 12;
 int okButtonState = 1;
@@ -40,12 +41,14 @@ uint8_t modeChangesColor;
 long timeFinishColorTransition;
 
 uint8_t currentR, currentG, currentB;
+float intensity = 1.0;
 
 //state of menu
 int currentMenu = 0;
 int menuStack[MAX_MENU_DEPTH];
 int menuSP = 0;
 int menuItem = 0;
+long menuStarted;
 
 uint8_t checkState = 0;
 long nextTimeCheck;
@@ -72,7 +75,7 @@ uint8_t song_number = 1;
 #define ROOT_MENU 999
 #define BACK_MENU -999
 
-// configuration od menu
+// configuration of menu
 const char* menu [] = {
   "Intensity",                       //0 -1
   "Color",                           //1     1
@@ -92,23 +95,24 @@ const char* menu [] = {
   "Focusing mode",                   //13 -7
   "Reading mode",                    //14 -8
   "Relaxing mode",                   //15 -9
+  "Evening mode      Duration",      //16 -22
 
-  "Set Alarm Time",                  //16 -15
-  "ON / OFF",                        //17 -16
-  "Show Alarm Time",                 //18 -17
-  "Set Time",                        //19 -18
-  "Set Music",                        //20 -19
-  "Set Volume" ,                       //21 -20
-  "Play Song"
+  "Set Alarm Time",                  //17 -15
+  "ON / OFF",                        //18 -16
+  "Show Alarm Time",                 //19 -17
+  "Set Time",                        //20 -18
+  "Set Music",                       //21 -19
+  "Set Volume",                      //22 -20
+  "Play Song"                        //23 -21
 };
 int menuStartItem[] = {
-  0, 4, 12, 16
+  0, 4, 12, 17
 };
 int  menuLen[] = {
-  4, 8, 4, 7
+  4, 8, 5, 7
 };
 int menuCmd [] = {
-  -1, 1, 2, 3, -3, -4, -5, -10, -11, -12, -13, -14, -6, -7, -8, -9, -15, -16, -17, -18, -19, -20, -21
+  -1, 1, 2, 3, -3, -4, -5, -10, -11, -12, -13, -14, -6, -7, -8, -9, -22, -15, -16, -17, -18, -19, -20, -21
 };
 
 void setup() {
@@ -149,14 +153,16 @@ uint8_t getInitMode(){
         return initialTimes[0][3];
   }
 }
+
 void setRGB(uint8_t r, uint8_t g, uint8_t b) {
-  analogWrite(RED, r);
-  analogWrite(GREEN, g);
-  analogWrite(BLUE, b);
+  analogWrite(RED, (uint8_t) (r * intensity));
+  analogWrite(GREEN, (uint8_t) (g * intensity));
+  analogWrite(BLUE, (uint8_t) (b * intensity));
   currentR = r;
   currentG = g;
   currentB = b;
 }
+
 void doMenuCmd(int cmd) {
   switch (cmd) {
     case -1: setIntensity(); break;
@@ -183,52 +189,67 @@ void doMenuCmd(int cmd) {
     case -18: setClockTime(); break;
     case -19: setMusic(); break;
     case -20: setVolume(); break;
-    case -21: playSong(); break;
+    case -21: playMusic(); break;
+    case -22: setEveningModeDuration(); break;
   }
 }
+
 void setMusic(){
-  uint8_t num;
+  uint8_t num = 0;
     lcd.clear();
   while (!readButton()) {
-    num = map(analogRead(A0), 0, 1023, 0, 5);
+    num = map(analogRead(A0), 0, 1023, 1, 5);
     lcd.setCursor(0,0);
     lcd.print(num);
     lcd.print("  ");
     delay(200);
   }
   song_number = num;
-//analgove zobrazenie...
-  //
   lcd.clear();
   lcd.print("Song number is: ");
   lcd.setCursor(1,1);
   lcd.print(song_number);
   delay(4000);
 }
+
 void setVolume(){
   while(!readButton()){
-    volume = analogRead(A0) * 0.06;
+    volume = (uint8_t) map(analogRead(A0), 0, 1023, 0, 31);
+    if (volume > 30) volume = 30;
     lcd.setCursor(0,0);
     lcd.print("Volume: ");
     lcd.print(volume);
     lcd.print("  ");
     delay(50);
+    mp3_set_volume(volume); 
   }
 }
-void playSong(){
-  playMusic();
+
+void setEveningModeDuration()
+{
+  uint8_t emd = 60;
+
+  lcd.clear();
+  while(!readButton()){
+    emd = (uint8_t) map(analogRead(A0), 0, 1023, 15, 60);
+    lcd.setCursor(0,0);
+    lcd.print("Minutes=");
+    lcd.print(emd);
+    delay(50);
+  }
+  if (settingX) *settingX = emd;
 }
+
 void setIntensity() {
-    // currentR, currentG, currentB;
-//  uint32_t q = 1;
-//  while (!readButton()) {
-//    uint8_t r = map(analogRead(A0), 0, 1023, 0, 255);
-//   // if(r > analogRead(RED)){
-//      analogWrite(RED, );
-//      analogWrite(GREEN, r);
-//      analogWrite(BLUE, r);
-//    //}
-//  }
+  while (!readButton()) {
+    intensity = (map(analogRead(A0), 0, 1023, 0, 255)) / 255.0;
+    setRGB(currentR, currentG, currentB);
+    lcd.setCursor(0,0);
+    lcd.print("Intensity: ");
+    lcd.print((int)(intensity * 100));
+    lcd.print("  ");
+    delay(50);
+  }
 }
 
 void selectRGB() {
@@ -236,7 +257,7 @@ void selectRGB() {
   lcd.setCursor(1, 0);
   lcd.print("***Red***");
   delay(1000);
-  uint8_t r;
+  uint8_t r = 0;
   analogWrite(RED, 0);
   analogWrite(GREEN, 0);
   analogWrite(BLUE, 0);
@@ -248,7 +269,7 @@ void selectRGB() {
   lcd.clear();
   lcd.print("***Green***");
   delay(1000);
-  uint8_t g;
+  uint8_t g = 0;
   while (!readButton()) {
     g = map(analogRead(A0), 0, 1023, 0, 255);
     analogWrite(GREEN, g);
@@ -257,14 +278,18 @@ void selectRGB() {
   lcd.clear();
   lcd.print("***Blue***");
   delay(1000);
-  uint8_t b;
+  uint8_t b = 0;
   while (!readButton()) {
     b = map(analogRead(A0), 0, 1023, 0, 255);
     analogWrite(BLUE, b);
   }
   analogWrite(RED, r);
   analogWrite(GREEN, g);
+  currentR = r;
+  currentG = g;
+  currentB = b;
 }
+
 void setColor(int colorNum) {
   //analofWrite pre kazdy z troch pinov
   switch (colorNum) {
@@ -312,7 +337,8 @@ void alarmControler(){
           hourAlarm2 = -1;
           timesAlarmPosponed = 0;
         }        
-        
+
+        Serial.println("alarm now");
         todayAlarm = true;
         lcd.clear();
         lcd.setCursor(1,0);
@@ -337,6 +363,7 @@ void showAlarmTime(){
    while(readButton());
    delay(50);   
 }
+
 void setClockTime(){
    lcd.clear();
    uint8_t day = inputNum(2,0, 31, 1);
@@ -353,6 +380,7 @@ void setTime(){
   lcd.print(":");
   minuteTime = inputNum(7,1, 59, 0);
 }
+
 void setAlarmTime() {
     setTime();
     hourAlarm = hourTime;
@@ -368,7 +396,7 @@ void setAlarmTime() {
 }
 
 int inputNum(int x, int y, int max, int min){
-  int option;
+  int option = min;
   while(!readButton()){
     option = map(analogRead(A0), 0, 1023, min, max);
     lcd.setCursor(x,y);
@@ -378,6 +406,7 @@ int inputNum(int x, int y, int max, int min){
   while(readButton());     //kym ho nepusti
   return option;
 }
+
 void setAlarmOnOff(){
   alarmOn = !alarmOn;
   EEPROM.write(0, alarmOn);
@@ -394,6 +423,7 @@ bool readButton() {
   }
   return false;
 }
+
 int checkAction() {
   if (readButton())  {
     while (readButton())
@@ -433,6 +463,7 @@ int checkAction() {
   }  
   return 3;
 }
+
 /*
  int checkAction() {
   if (readButton())  {
@@ -480,17 +511,22 @@ int checkAction() {
 //  lcd.print(menu[num]);
 //}
 void printCurrentMenuItem() {
+  Serial.print("pcmi:");
+  Serial.print(currentMenu);
+  Serial.print(",");
+  Serial.println(menuItem);
+  
   lcd.clear();
   if (menuItem == menuLen[currentMenu]) {
     lcd.print("Back");
   } else {
-    if (menuStartItem[currentMenu] + menuItem == 5) {
-      for (int i = 0; i < 16; i++) {
+    if (strlen(menu[menuStartItem[currentMenu] + menuItem]) > 16) {
+      for (uint8_t i = 0; i < 16; i++) {
         lcd.setCursor(i, 0);
         lcd.print(menu[menuStartItem[currentMenu] + menuItem][i]);
       }
       int j = 0;
-      for (int i = 16; i < strlen(menu[menuStartItem[currentMenu] + menuItem]); i++) {
+      for (uint8_t i = 16; i < strlen(menu[menuStartItem[currentMenu] + menuItem]); i++) {
         lcd.setCursor(j, 1);
         lcd.print(menu[menuStartItem[currentMenu] + menuItem][i]);
         j++;
@@ -504,6 +540,7 @@ void printCurrentMenuItem() {
   printAlarmIndicator();
   printCurrentModeNumber();
 }
+
 bool enterToChoosenMenuOption(int num) {
   if (num == 4)
     return false;
@@ -514,7 +551,7 @@ bool enterToChoosenMenuOption(int num) {
   return true;
 }
 
-int enterMenuItem() {
+void enterMenuItem() {
   Serial.print("menuitem:");
   Serial.print(menuItem);
   Serial.print(" menu:");
@@ -529,6 +566,7 @@ int enterMenuItem() {
       menuItem = 0;
       currentMenu = menuStack[--menuSP];
     }
+    else menuStarted = RTC.now().secondstime() - MENU_IDLE_LIMIT - 1;
   } else {
     int n = menuCmd[menuStartItem[currentMenu] + menuItem];
     if (n < 0) {
@@ -545,19 +583,22 @@ int enterMenuItem() {
   }
   printCurrentMenuItem();
 }
-int nextMenuItem() {
-  int optionalBack = currentMenu > 0;
+
+void nextMenuItem() {
+//  int optionalBack = currentMenu > 0;
   menuItem++;
-  menuItem %= menuLen[currentMenu] + optionalBack;
+  menuItem %= menuLen[currentMenu]; // + optionalBack;
   printCurrentMenuItem();
 }
-int prevMenuItem() {
-  int optionalBack = currentMenu > 0;
+
+void prevMenuItem() {
+  //int optionalBack = currentMenu > 0;
   menuItem--;
   if (menuItem < 0)
-    menuItem = menuLen[currentMenu] + optionalBack - 1;
+    menuItem = menuLen[currentMenu] - 1; //+ optionalBack;
   printCurrentMenuItem();
 }
+
 void changeMode(int newMode) {
   if(currentMode == newMode && loop3[currentMode] != -1){
     recursiveChangeMode++;
@@ -582,6 +623,7 @@ void changeMode(int newMode) {
       timeFinishColorTransition = afterMode[currentMode][0] * 3600 + afterMode[currentMode][1] * 60 + afterMode[currentMode][2];
   }
 }
+
 bool isBefore(DateTime *time1, DateTime *time2) {
   if (time1->hour() < time2->hour())
     return true;
@@ -604,11 +646,12 @@ void trans(){
     Serial.print(" - ");
     Serial.println(timeFinishColorTransition);
   delay(200);
-    int r = map(fromStartMode, 0, timeFinishColorTransition, color1[currentMode][0], color2[currentMode][0]);
-    int g = map(fromStartMode, 0, timeFinishColorTransition, color1[currentMode][1], color2[currentMode][1]);
-    int b = map(fromStartMode, 0, timeFinishColorTransition, color1[currentMode][2], color2[currentMode][2]);
+    uint8_t r = (uint8_t) map(fromStartMode, 0, timeFinishColorTransition, color1[currentMode][0], color2[currentMode][0]);
+    uint8_t g = (uint8_t) map(fromStartMode, 0, timeFinishColorTransition, color1[currentMode][1], color2[currentMode][1]);
+    uint8_t b = (uint8_t) map(fromStartMode, 0, timeFinishColorTransition, color1[currentMode][2], color2[currentMode][2]);
     setRGB(r, g, b);
 }
+
 void idle() {
   //Serial.println("idle");
   long lastTimeShown = RTC.now().secondstime();
@@ -633,6 +676,8 @@ void idle() {
     }
     if(modeChangesColor)
       trans();
+    else setRGB(currentR, currentG, currentB);
+    
     int action = checkAction();
     switch(action){
       case 1: 
@@ -676,7 +721,7 @@ void plusXmin(int8_t *h, int8_t *m, int8_t x) {
 void mainMenu() {
   prevAnalogState = analogRead(A0);
   printCurrentMenuItem();
-  long menuStarted = RTC.now().secondstime();
+  menuStarted = RTC.now().secondstime() - MENU_IDLE_LIMIT - 1;
   while (true) {
     long nowSec = RTC.now().secondstime();
     if (nowSec - menuStarted > MENU_IDLE_LIMIT)
@@ -686,8 +731,7 @@ void mainMenu() {
       menuStarted = RTC.now().secondstime();
     }
     uint8_t action = checkAction();
-    if(action != 3)
-    Serial.println(action);
+    if (action != 3) Serial.println(action);
     if (action != 3) menuStarted = RTC.now().secondstime();
 
     switch (action) {
@@ -697,6 +741,7 @@ void mainMenu() {
     }
   }
 }
+
 void displayTime() {
   DateTime now = RTC.now();
   lcd.clear();
@@ -725,11 +770,13 @@ void printAlarmIndicator(){
     lcd.print("*");
   }
 }
+
 void printCurrentModeNumber(){
     lcd.setCursor(14,1);
     lcd.print(currentMode);
     lcd.print(" ");
 }
+
 void setupButton() {
   pinMode(okButton, INPUT);
   digitalWrite(okButton, HIGH);
@@ -773,6 +820,8 @@ void setupLCD() {
 // volume 0-30
 void mp3_set_volume(uint8_t volume)
 {
+  Serial.print("vol=");
+  Serial.println(volume);
   mp3_send_packet(0x06, volume);
 }
 
@@ -785,6 +834,7 @@ void mp3_reset()
 {
   mp3_send_packet(0x0C, 0);
 }
+
 void mp3_send_byte(uint8_t pin, uint8_t val)
 {
   pinMode(MP3_OUTPUT_PIN, OUTPUT);
