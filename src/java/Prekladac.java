@@ -6,19 +6,38 @@ import java.util.TreeMap;
 public class Prekladac {
     static int  ids = 0;
 	static int earlyAlarm = 0;
-    static TimeAndMode parseTimeAndMode(String line, int from) throws Exception {
+	static String settingX = "0";
+	
+    static TimeAndMode parseTimeAndMode(String line, int from, String arrayName, int arrayIndex) throws Exception {
         TimeAndMode tm = new TimeAndMode();
         String [] values = line.substring(from).split(" ");
-        if(values.length < 2)
+        if (values.length < 2)
             throw new Exception("Can not parse " + line);
         tm.mode = values[1];
         String [] time = values[0].split(":");
-        if(time.length < 3)
+        if (time.length == 3)
+		{
+			for (int i = 0; i < 3; i++) {
+				tm.tm[i] = Integer.parseInt(time[i]);
+			}
+		}
+        else if (time.length == 1)
+		{
+			tm.tm[0] = 0;
+			try { tm.tm[1] = Integer.parseInt(time[0]); }
+			catch (NumberFormatException ex)
+			{
+				tm.tm[1] = 0;
+				if (time[0].equals("X")) 
+					settingX = "&(" + arrayName + "[" + arrayIndex + "][1])" ;
+			}
+			tm.tm[2] = 0;
+		}
+		else 
+		{
             throw new Exception("Can not parse " + line);
-        for (int i = 0; i < 3; i++) {
-            tm.tm[i] = Integer.parseInt(time[i]);
-        }
-        return tm;
+		}
+		return tm;
     }
     public static Mode readMode(BufferedReader br, String name) throws  Exception {
             Mode m = new Mode();
@@ -35,9 +54,9 @@ public class Prekladac {
             } else if (line.substring(0, 8).equals("COLOR2=#")) {
                 m.color2 = Integer.parseInt(line.substring(8), 16);
             } else if (line.substring(0, 3).equals("AT ")) {
-                m.at = parseTimeAndMode(line, 3);
+                m.at = parseTimeAndMode(line, 3, "atMode", m.id);
             } else if (line.substring(0, 6).equals("AFTER ")) {
-                m.after = parseTimeAndMode(line, 6);
+                m.after = parseTimeAndMode(line, 6, "afterMode", m.id);
             } else if (line.substring(0, 6).equals("ALARM ")) {
                 m.alarm = line.substring(6).trim();
             } else if (line.substring(0, 5).equals("TURN ")) {
@@ -75,7 +94,7 @@ public class Prekladac {
             if(line.trim().length() == 0)
                 break;
             System.out.println(line);
-            TimeAndMode tm = parseTimeAndMode(line,0);
+            TimeAndMode tm = parseTimeAndMode(line, 0, "initalTimes", schedule.initialModes.size());
             schedule.initialModes.add(tm);
         }
         while(true){
@@ -232,7 +251,8 @@ public class Prekladac {
                 pw.println(", ");
         }
         pw.println(" };");
-
+        pw.println("int8_t *settingX = " + settingX + ";");
+        
         pw.close();
     }
     static void printFourValues(PrintWriter pw, int [] vals, int modeID){
