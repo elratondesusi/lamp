@@ -1,5 +1,5 @@
 #include <Arduino.h>
-uint8_t earlyAlarm = 1;
+uint8_t earlyAlarm = 2;
 uint8_t initialTimesCnt = 5;
 uint8_t initialTimes  [][4] = { { 1, 0, 0, 3 }, 
 { 8, 0, 0, 5 }, 
@@ -55,8 +55,8 @@ int8_t afterMode [][4] = { { 0, 0, 30, 1 },
 { 0, 0, 30, 5 }, 
 { 0, 0, 0, -1 }, 
 { 0, 0, 15, 5 }, 
-{ 0, 0, 30, 8 }, 
-{ 0, 0, 33, 10 }, 
+{ 0, 0, 60, 8 }, 
+{ 0, 0, 63, 10 }, 
 { 0, 0, 20, 9 }, 
 { 0, 0, 15, 0 }, 
 { 0, 1, 0, 3 }, 
@@ -118,3 +118,4 @@ int8_t loop3 [] = { -1,
 -1, 
 -1, 
 -1 };
+int8_t *settingX = 0;
