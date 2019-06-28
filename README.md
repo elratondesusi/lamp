@@ -32,19 +32,19 @@ You should see the following scenario:
 
 * depending on the time of the day, the lamp will start in one of the main modes (circadian, afternoon, evening, night, sleep)
 * it advances to the next mode (in the order mentioned above) in 30 seconds, except of the night -> sleep, which takes 1 minute, always changing colours:
-** white in circadian,
-** yellow in the afternoon,
-** white in the evening,
-** yellow -> red, and then red -> black in the night,
-** black in the sleep mode.
+  * white in circadian,
+  * yellow in the afternoon,
+  * white in the evening,
+  * yellow -> red, and then red -> black in the night,
+  * black in the sleep mode.
 * in the sleep mode:
-** turnining the dial slightly ("touch") opens red light until touched again, or 15 seconds pass
-** turning the dial more ("turn") starts the wakeup procedure
-** EARLYALARM minutes before the alarm (if alarm is ON) starts the wakeup procedure
+  * turnining the dial slightly ("touch") opens red light until touched again, or 15 seconds pass
+  * turning the dial more ("turn") starts the wakeup procedure
+  * EARLYALARM minutes before the alarm (if alarm is ON) starts the wakeup procedure
 * wakeup procedure:
-** always change from dark red to bright red the first 30 seconds
-** always change from red to yellow the next 30 seconds
-** in case the wakeup procedure was initiated by "turn" (not by alarm), change from yellow to white in the next 15 seconds and advance to the circadian mode
-** otherwise, start alarm music while yellow, and allow postponing alarm by "touch", or closing alarm by "turn" action
-** postponing the alarm three times, or no action in one minute (3 x 20 seconds) finally close the alarm 
-** closing the alarm means change yellow to white in 15 seconds, and then advancing to circadian mode
+  * always change from dark red to bright red the first 30 seconds
+  * always change from red to yellow the next 30 seconds
+  * in case the wakeup procedure was initiated by "turn" (not by alarm), change from yellow to white in the next 15 seconds and advance to the circadian mode
+  * otherwise, start alarm music while yellow, and allow postponing alarm by "touch", or closing alarm by "turn" action
+  * postponing the alarm three times, or no action in one minute (3 x 20 seconds) finally close the alarm 
+  * closing the alarm means change yellow to white in 15 seconds, and then advancing to circadian mode
