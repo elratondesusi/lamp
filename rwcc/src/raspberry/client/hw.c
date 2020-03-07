@@ -34,6 +34,7 @@ int readchar(int timeout)
 	    if (errno != EAGAIN)
             {
 	      perror("could not read shake from arduino\n");
+	      fflush(stderr);
 	      return -1;
 	    }
       }
@@ -47,13 +48,19 @@ int init_hw()
   char *shakebuf = "SHAKE?";
 
   serial = open("/dev/ttyUSB0", O_RDWR | O_DSYNC | O_NONBLOCK);
-  if (serial < 0) printf("Not connected to arduino\n");
   sleep(5);
+  if (serial < 0) 
+  {
+	  printf("Not connected to arduino\n");
+	  fflush(stdout);
+	  return 0;
+  }
 
   int written;
   if ((written = write(serial, shakebuf, 6)) < 0) 
   {
 	  perror("could not shake with arduino\n");
+	  fflush(stderr);
   }
 
   char responsebuf[7];
@@ -70,10 +77,12 @@ int init_hw()
   if (strcmp(responsebuf, "SHAKE!") == 0)
   {
 	  printf("arduino connected\n");
+	  fflush(stdout);
 	  return 1;
   }
 
   printf("arduino does not shake\n");
+  fflush(stdout);
   return 0;
 }
 
@@ -93,6 +102,7 @@ void set_color(uint8_t day, uint8_t r, uint8_t w, uint8_t c1, uint8_t c2)
     if ((written = write(serial, buf, 6)) < 0) 
     {
        perror("could not write to arduino\n");
+       fflush(stderr);
     }
   }
 }

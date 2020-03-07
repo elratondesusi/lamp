@@ -73,6 +73,7 @@ void set_new_plan(char *newplan)
   for (int i = 0; i < plan_len; i++)
 	  printf("%02d:%02d %02x %02x %02x %02x %d\n", plan_hour[i], plan_minute[i], plan_red[i], plan_warm[i], plan_cold1[i], plan_cold2[i], plan_interpolate[i]);
   printf("---");
+  fflush(stdout);
   adopt_new_plan = 1;
 }
 
@@ -137,6 +138,7 @@ int recv_packet()
         if (len_pckt > max_packet_size - 1)
         {
           printf("packet size exceeded\n");
+	  fflush(stdout);
           return 1;
         }
         if (recv_data(packet, len_pckt)) return 1;
@@ -160,32 +162,37 @@ void process_packet()
      int day, red, warm, cold1, cold2;
      sscanf(packet + strlen(setcolor_packet) + 1, "%d,%d,%d,%d,%d)", &day, &red, &warm, &cold1, &cold2);
      printf("setcolor(%d,%d,%d,%d,%d)\n", day, red, warm, cold1, cold2);
+     fflush(stdout);
      set_color(day, red, warm, cold1, cold2);
   }
   else if (strncmp(packet, planon_packet, strlen(planon_packet)) == 0)
   {
     printf("planon\n");
+    fflush(stdout);
     plan_is_on = 1;
   }
   else if (strncmp(packet, planoff_packet, strlen(planoff_packet)) == 0)
   {
     printf("planoff\n");
+    fflush(stdout);
     plan_is_on = 0;
   }
   else if (strncmp(packet, plantest_packet, strlen(plantest_packet)) == 0)
   {
     printf("plantest\n");
+    fflush(stdout);
   }
   else if (strncmp(packet, newplan_packet, strlen(newplan_packet)) == 0)
   {
     printf("newplan\n");
+    fflush(stdout);
     set_new_plan(packet + strlen(newplan_packet));
   }
   else if (strncmp(packet, bim_packet, strlen(bim_packet)) == 0)
   {
     send_packet(bam_packet, strlen(bam_packet));
   }
-  else printf("unknown packet %s\n", packet);
+  else { printf("unknown packet %s\n", packet); fflush(stdout); }
 }
 
 long time_difference_in_secs(int h1, int m1, int h2, int m2)
@@ -209,6 +216,7 @@ void take_plan_step(int i, time_t t)
   sprintf(step_description, "status step %02d [%02x,%02x,%02x,%02x,%d]", i, plan_red[i], plan_warm[i], plan_cold1[i], plan_cold2[i], plan_interpolate[i]);
   send_packet(step_description, strlen(step_description));
   printf("%s\n", step_description);
+  fflush(stdout);
 
   int next_i = (i + 1) % plan_len;
 
@@ -282,6 +290,7 @@ void *agenda_thread(void *args)
 	    int cold2_now = (int)(0.5 + cigs_cold2_1 * cigs_adv_inverse + cigs_cold2_2 * cigs_advancement);
 	    set_color(1, red_now, warm_now, cold1_now, cold2_now);
             printf("%02d [%02x,%02x,%02x,%02x]\n", current_interpolated_goal_step, red_now, warm_now, cold1_now, cold2_now);
+            fflush(stdout);
     }
   }
 }
@@ -294,6 +303,7 @@ void start_agenda_thread()
     perror("could not start thread");
   }
   printf("agenda thread started\n");
+  fflush(stdout);
 }
 
 int main(int argc , char *argv[])
@@ -317,23 +327,28 @@ int main(int argc , char *argv[])
 	if (connect(socket_desc , (struct sockaddr *)&server , sizeof(server)) < 0)
 	{
 		printf("connect error\n");
+		fflush(stdout);
 		return 1;
 	}
         
         printf("sending login packet...\n");
+  	fflush(stdout);
         if (send_packet(login_request_packet, strlen(login_request_packet))) return 1;
 
         printf("sent, waiting for confirmation...\n");
+  	fflush(stdout);
         
         if (recv_packet()) return 1;
    
         if (strcmp(packet, login_response_packet) != 0)
         {
             printf("confirmation unrecognized\n");
+  	    fflush(stdout);
             return 1;
         }
 	
 	printf("handshake ok\n");
+	fflush(stdout);
 
         connected = 1;
 
