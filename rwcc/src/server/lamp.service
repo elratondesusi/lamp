@@ -1,0 +1,12 @@
+[Unit]
+Description=Lamp server
+After=network.target
+
+[Service]
+User=root
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/home/lampa/lamp/rwcc/src/server/server.sh
+
+[Install]
+WantedBy=multi-user.target
