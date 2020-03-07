@@ -7,6 +7,17 @@
 #define SWITCH_COLD1 7
 #define SWITCH_COLD2 8
 
+// wire connections on model #001
+//
+// 3 - red (cold2 pwm)
+// 5 - green (red relay)
+// 6 - black (warm relay)
+// 7 - orange (cold1 relay)
+// 8 - brown (cold2 relay)
+// 9 - white (red pwm)
+// 10 - yellow (warm pwm)
+// 11 - blue (cold1 pwm)
+
 uint8_t r, w, c1, c2;
 
 uint8_t switch_red, switch_warm, switch_cold1, switch_cold2;
