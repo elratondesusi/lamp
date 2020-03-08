@@ -21,6 +21,11 @@
 uint8_t r, w, c1, c2;
 
 uint8_t switch_red, switch_warm, switch_cold1, switch_cold2;
+uint8_t bak_red, bak_warm, bak_cold1, bak_cold2;
+
+uint32_t time_break_started;
+uint32_t max_break_time_in_minutes;
+uint8_t toilet_break;
 
 void switch_if_needed(uint8_t val, uint8_t newval, uint8_t pin_number)
 {
@@ -67,7 +72,8 @@ void setColor(uint8_t newr, uint8_t neww, uint8_t newc1, uint8_t newc2)
   Serial.println();
 }
 
-void setup() {
+void setup() 
+{
   pinMode(RED, OUTPUT);
   pinMode(WARM, OUTPUT);
   pinMode(COLD1, OUTPUT);
@@ -85,6 +91,9 @@ void setup() {
   w = 0; 
   c1 = 0;
   c2 = 0;
+  switch_red = 200; switch_warm = 0; switch_cold1 = 0; switch_cold2 = 0;
+  max_break_time_in_minutes = 5;
+  toilet_break = 0;
 }
 
 char readchar()
@@ -99,8 +108,25 @@ uint8_t readbyte()
   return Serial.read();  
 }
 
+void toilet_break_start()
+{
+  bak_red = r; bak_warm = w; bak_cold1 = c1; bak_cold2 = c2;
+  setColor(switch_red, switch_warm, switch_cold1, switch_cold2);
+  time_break_started = millis();
+  toilet_break = 1;
+}
+
+void toilet_break_stop()
+{
+  setColor(bak_red, bak_warm, bak_cold1, bak_cold2);
+  toilet_break = 0;
+}
+
 void loop() 
 {
+  if (millis() - time_break_started > max_time_break_in_minutes * 60L * 1000L)
+    toilet_break_stop();
+
   if (Serial.available())
   {
     char c = Serial.read();
@@ -111,10 +137,17 @@ void loop()
       uint8_t warm = readbyte();
       uint8_t cold1 = readbyte();
       uint8_t cold2 = readbyte();
-      Serial.print("red=");
-      Serial.println(red);
       if (day == 1)
-        setColor(red, warm, cold1, cold2);
+      {
+        if (toilet_break) 
+        {
+          bak_red = red;
+          bak_warm = warm;
+          bak_cold1 = cold1;
+          bak_cold2 = cold2;
+        }
+        else setColor(red, warm, cold1, cold2);
+      }
       else 
       {
         switch_red = red;
@@ -122,6 +155,12 @@ void loop()
         switch_cold1 = cold1;
         switch_cold2 = cold2;
       }
+    }
+    else if (c == 'B') toilet_break_start();
+    else if (c == 'R') toilet_break_stop();
+    else if (c == 'M')
+    {
+      max_break_time_in_minutes = readchar();
     }
     else if (c == 'a') 
     {
