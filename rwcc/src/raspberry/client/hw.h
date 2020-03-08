@@ -3,11 +3,15 @@
 
 #include <stdint.h>
 
-int init_hw();
+int init_hw(int handle);
+void close_hw(int handle);
 
-void set_color(uint8_t day, uint8_t r, uint8_t w, uint8_t c1, uint8_t c2);
+void set_color(uint8_t day, uint8_t r, uint8_t w, uint8_t c1, uint8_t c2, uint8_t maxtime);
 
-void close_hw();
+int button_alive();
+int is_button_request();
+void send_button_request();
+
 
 #endif
 

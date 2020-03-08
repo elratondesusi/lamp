@@ -45,6 +45,17 @@ static int cigs_red_1, cigs_warm_1, cigs_cold1_1, cigs_cold2_1,
            cigs_red_2, cigs_warm_2, cigs_cold1_2, cigs_cold2_2;
 static double cigs_start_time, cigs_total_time;
 
+
+char *current_time()
+{
+  static char curtime[100];
+  time_t tim;
+  time(&tim);
+  ctime_r(&tim, curtime);
+  curtime[strlen(curtime) - 1] = 0;
+  return curtime;
+}
+
 void set_new_plan(char *newplan)
 {
   plan_len = 0;
@@ -69,9 +80,9 @@ void set_new_plan(char *newplan)
     }
     while ((*newplan) && (*(++newplan) != '\n'));
   } 
-  printf("loaded plan with %d steps\n", plan_len);
+  printf("%s: loaded plan with %d steps\n", current_time(), plan_len);
   for (int i = 0; i < plan_len; i++)
-	  printf("%02d:%02d %02x %02x %02x %02x %d\n", plan_hour[i], plan_minute[i], plan_red[i], plan_warm[i], plan_cold1[i], plan_cold2[i], plan_interpolate[i]);
+    printf("%02d:%02d %02x %02x %02x %02x %d\n", plan_hour[i], plan_minute[i], plan_red[i], plan_warm[i], plan_cold1[i], plan_cold2[i], plan_interpolate[i]);
   printf("---");
   fflush(stdout);
   adopt_new_plan = 1;
@@ -134,7 +145,7 @@ int recv_packet()
         unsigned char *pckt = (unsigned char *)packet;
         if (recv_data(packet, 4)) return 1;
         len_pckt = pckt[0] + (pckt[1] << 8);
-        printf("packet[%d]\n", len_pckt);
+        //printf("packet[%d]\n", len_pckt);
         if (len_pckt > max_packet_size - 1)
         {
           printf("packet size exceeded\n");
@@ -159,32 +170,32 @@ void process_packet()
   //printf("process packet %s\n", packet);
   if (strncmp(packet, setcolor_packet, strlen(setcolor_packet)) == 0)
   {
-     int day, red, warm, cold1, cold2;
-     sscanf(packet + strlen(setcolor_packet) + 1, "%d,%d,%d,%d,%d)", &day, &red, &warm, &cold1, &cold2);
-     printf("setcolor(%d,%d,%d,%d,%d)\n", day, red, warm, cold1, cold2);
+     int day, red, warm, cold1, cold2, maxtime;
+     sscanf(packet + strlen(setcolor_packet) + 1, "%d,%d,%d,%d,%d,%d)", &day, &red, &warm, &cold1, &cold2, &maxtime);
+     printf("%s: setcolor(%d,%d,%d,%d,%d,%d)\n", current_time(), day, red, warm, cold1, cold2, maxtime);
      fflush(stdout);
-     set_color(day, red, warm, cold1, cold2);
+     set_color(day, red, warm, cold1, cold2, maxtime);
   }
   else if (strncmp(packet, planon_packet, strlen(planon_packet)) == 0)
   {
-    printf("planon\n");
+    printf("%s: planon\n", current_time());
     fflush(stdout);
     plan_is_on = 1;
   }
   else if (strncmp(packet, planoff_packet, strlen(planoff_packet)) == 0)
   {
-    printf("planoff\n");
+    printf("%s: planoff\n", current_time());
     fflush(stdout);
     plan_is_on = 0;
   }
   else if (strncmp(packet, plantest_packet, strlen(plantest_packet)) == 0)
   {
-    printf("plantest\n");
+    printf("%s: plantest\n", current_time());
     fflush(stdout);
   }
   else if (strncmp(packet, newplan_packet, strlen(newplan_packet)) == 0)
   {
-    printf("newplan\n");
+    printf("%s: newplan\n", current_time());
     fflush(stdout);
     set_new_plan(packet + strlen(newplan_packet));
   }
@@ -192,7 +203,7 @@ void process_packet()
   {
     send_packet(bam_packet, strlen(bam_packet));
   }
-  else { printf("unknown packet %s\n", packet); fflush(stdout); }
+  else { printf("%s: unknown packet %s\n", current_time(), packet); fflush(stdout); }
 }
 
 long time_difference_in_secs(int h1, int m1, int h2, int m2)
@@ -211,11 +222,11 @@ long time_difference_in_secs(int h1, int m1, int h2, int m2)
 void take_plan_step(int i, time_t t)
 {
   current_step = i;
-  set_color(1, plan_red[i], plan_warm[i], plan_cold1[i], plan_cold2[i]);
+  set_color(1, plan_red[i], plan_warm[i], plan_cold1[i], plan_cold2[i], 0);
   char step_description[100];
   sprintf(step_description, "status step %02d [%02x,%02x,%02x,%02x,%d]", i, plan_red[i], plan_warm[i], plan_cold1[i], plan_cold2[i], plan_interpolate[i]);
   send_packet(step_description, strlen(step_description));
-  printf("%s\n", step_description);
+  printf("%s: %s\n", current_time(), step_description);
   fflush(stdout);
 
   int next_i = (i + 1) % plan_len;
@@ -235,6 +246,35 @@ void take_plan_step(int i, time_t t)
     cigs_cold2_2 = plan_cold2[next_i];
     cigs_start_time = t;
     cigs_total_time = time_difference_in_secs(plan_hour[i], plan_minute[i], plan_hour[next_i], plan_minute[next_i]);
+  }
+}
+
+void *button_thread(void *args)
+{
+  while (1)
+  {
+    while (!init_hw(1)) sleep(5);
+    int alive_check_counter = 0;
+    while (1)
+    {
+      if (alive_check_counter++ > 100)
+      {
+        alive_check_counter = 0;
+        if (!button_alive())
+	{
+          printf("%s: lost button\n", current_time());
+	  close_hw(1);
+	  break;
+	}
+      }
+
+      if (is_button_request()) 
+      {
+        send_button_request();
+	printf("%s: button\n", current_time());
+      }
+      usleep(200000UL);
+    }
   }
 }
 
@@ -288,8 +328,8 @@ void *agenda_thread(void *args)
             int warm_now = (int)(0.5 + cigs_warm_1 * cigs_adv_inverse + cigs_warm_2 * cigs_advancement);
 	    int cold1_now = (int)(0.5 + cigs_cold1_1 * cigs_adv_inverse + cigs_cold1_2 * cigs_advancement);
 	    int cold2_now = (int)(0.5 + cigs_cold2_1 * cigs_adv_inverse + cigs_cold2_2 * cigs_advancement);
-	    set_color(1, red_now, warm_now, cold1_now, cold2_now);
-            printf("%02d [%02x,%02x,%02x,%02x]\n", current_interpolated_goal_step, red_now, warm_now, cold1_now, cold2_now);
+	    set_color(1, red_now, warm_now, cold1_now, cold2_now, 0);
+            printf("%s: %02d [%02x,%02x,%02x,%02x]\n", current_time(), current_interpolated_goal_step, red_now, warm_now, cold1_now, cold2_now);
             fflush(stdout);
     }
   }
@@ -306,63 +346,85 @@ void start_agenda_thread()
   fflush(stdout);
 }
 
+void start_button_thread()
+{
+  pthread_t t;
+  if (pthread_create(&t, 0, button_thread, 0) != 0)
+  {
+    perror("could not start button thread");
+  }
+  printf("button thread started\n");
+  fflush(stdout);
+}
+
 int main(int argc , char *argv[])
 {
-	struct sockaddr_in server;
-	
-        while (!init_hw()) { printf("."); fflush(stdout); }
+  struct sockaddr_in server;
+  while (1)
+  {
+    while (!init_hw(0)) { printf("."); fflush(stdout); }
 
-	//Create socket
-	socket_desc = socket(AF_INET, SOCK_STREAM, 0);
-	if (socket_desc == -1)
-	{
-		perror("Could not create socket");
-	}
-		
-	server.sin_addr.s_addr = inet_addr("158.195.89.120");
-	server.sin_family = AF_INET;
-	server.sin_port = htons( 9877 );
+    socket_desc = socket(AF_INET, SOCK_STREAM, 0);
+    if (socket_desc == -1)
+    {
+    	perror("Could not create socket");
+    }
+    	
+    server.sin_addr.s_addr = inet_addr("158.195.89.120");
+    server.sin_family = AF_INET;
+    server.sin_port = htons( 9877 );
 
-	//Connect to remote server
-	if (connect(socket_desc , (struct sockaddr *)&server , sizeof(server)) < 0)
-	{
-		printf("connect error\n");
-		fflush(stdout);
-		return 1;
-	}
-        
-        printf("sending login packet...\n");
-  	fflush(stdout);
-        if (send_packet(login_request_packet, strlen(login_request_packet))) return 1;
+    if (connect(socket_desc, (struct sockaddr *)&server , sizeof(server)) < 0)
+    {
+    	printf("connect error\n");
+    	fflush(stdout);
+	sleep(5);
+	continue;
+    }
+    
+    printf("sending login packet...\n");
+    fflush(stdout);
+    if (send_packet(login_request_packet, strlen(login_request_packet))) 
+    {
+        close(socket_desc);
+	continue;
+    }
 
-        printf("sent, waiting for confirmation...\n");
-  	fflush(stdout);
-        
-        if (recv_packet()) return 1;
+    printf("sent, waiting for confirmation...\n");
+    fflush(stdout);
+    
+    if (recv_packet()) 
+    {
+      close(socket_desc);
+      continue;
+    }
    
-        if (strcmp(packet, login_response_packet) != 0)
-        {
-            printf("confirmation unrecognized\n");
-  	    fflush(stdout);
-            return 1;
-        }
-	
-	printf("handshake ok\n");
-	fflush(stdout);
+    if (strcmp(packet, login_response_packet) != 0)
+    {
+        printf("confirmation unrecognized\n");
+        fflush(stdout);
+	close(socket_desc);
+        continue;
+    }
+    
+    printf("handshake ok\n");
+    fflush(stdout);
 
-        connected = 1;
+    connected = 1;
 
-        start_agenda_thread();
+    start_agenda_thread();
+    start_button_thread();
 
-        while (connected)
-        { 
-           if (recv_packet()) return 1;
-           process_packet();
-        }
+    while (connected)
+    { 
+       if (recv_packet()) break;
+       process_packet();
+    }
 
-        sleep(1);
-        close_hw();
-        printf("quit\n");
-	return 0;
+    sleep(1);
+    close_hw(0);
+    close(socket_desc);
+  }
+  return 0;
 }
 

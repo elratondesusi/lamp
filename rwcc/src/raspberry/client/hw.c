@@ -10,8 +10,14 @@
 #include <sys/time.h>
 
 #define SETCOLOR 'C'
+#define SETMAXTIME 'M'
+#define BUTTON_ON_REQUEST 'B'
+#define BUTTON_OFF_REQUEST 'R'
 
-static int serial = 0;
+static int serial[2] = { 0, 0 };
+static char *port[2] = { "/dev/ttyUSB0", "/dev/rfcomm0" };
+static int button_on = 0;
+static int button_request = 0;
 
 long msec()
 {
@@ -20,7 +26,7 @@ long msec()
 	return 1000L * tv.tv_sec + tv.tv_usec / 1000L;
 }
 
-int readchar(int timeout)
+int readchar(int handle, int timeout)
 {
     int nread;
     char c;
@@ -29,13 +35,13 @@ int readchar(int timeout)
     long time1 = msec();
 
     do {
-      if ((nread = read(serial, &c, 1)) < 0)
+      if ((nread = read(serial[handle], &c, 1)) < 0)
       {
 	    if (errno != EAGAIN)
             {
 	      perror("could not read shake from arduino\n");
 	      fflush(stderr);
-	      return -1;
+	      return -2;
 	    }
       }
       if (nread == 1) return c;
@@ -43,32 +49,45 @@ int readchar(int timeout)
     return -1;
 }
 
-int init_hw()
+int init_hw(int handle)
 {
   char *shakebuf = "SHAKE?";
 
-  serial = open("/dev/ttyUSB0", O_RDWR | O_DSYNC | O_NONBLOCK);
+  serial[handle] = open(port[handle], O_RDWR | O_DSYNC | O_NONBLOCK);
   sleep(5);
-  if (serial < 0) 
+  if (serial[handle] < 0) 
   {
-	  printf("Not connected to arduino\n");
+	  printf("Not connected to arduino %d\n", handle);
 	  fflush(stdout);
+	  serial[handle] = 0;
 	  return 0;
   }
 
   int written;
-  if ((written = write(serial, shakebuf, 6)) < 0) 
+  for (int part = 0; part < 3; part++)
   {
+    if ((written = write(serial[handle], shakebuf + (part * 2), 2)) < 2) 
+    {
 	  perror("could not shake with arduino\n");
 	  fflush(stderr);
+	  close(serial[handle]);
+	  serial[handle] = 0;
+	  return 0;
+    }
+    usleep(50000);
   }
 
   char responsebuf[7];
   for (int i = 0; i < 6; i++)
   {
     int cread;
-    cread = readchar(500);
-    if (cread < 0) return 0;
+    cread = readchar(handle, 500);
+    if (cread < 0) 
+    {
+      close(serial[handle]);
+      serial[handle] = 0;
+      return 0;
+    }
     responsebuf[i] = cread;
     if (responsebuf[i] == 'S') responsebuf[i=0] = 'S';
   }
@@ -76,18 +95,20 @@ int init_hw()
   responsebuf[6] = 0;
   if (strcmp(responsebuf, "SHAKE!") == 0)
   {
-	  printf("arduino connected\n");
+	  printf("arduino %d connected\n", handle);
 	  fflush(stdout);
 	  return 1;
   }
 
-  printf("arduino does not shake\n");
+  printf("arduino %d does not shake\n", handle);
   fflush(stdout);
+  close(serial[0]);
+  serial[0] = 0;
   return 0;
 }
 
 
-void set_color(uint8_t day, uint8_t r, uint8_t w, uint8_t c1, uint8_t c2)
+void set_color(uint8_t day, uint8_t r, uint8_t w, uint8_t c1, uint8_t c2, uint8_t maxtime)
 {
   int written;
   uint8_t buf[6];
@@ -98,16 +119,113 @@ void set_color(uint8_t day, uint8_t r, uint8_t w, uint8_t c1, uint8_t c2)
   buf[4] = c1;
   buf[5] = c2;
 
-  if (serial > 0) {
-    if ((written = write(serial, buf, 6)) < 0) 
+  if (serial[0] > 0) {
+    if ((written = write(serial[0], buf, 6)) < 6) 
     {
        perror("could not write to arduino\n");
        fflush(stderr);
+       close(serial[0]);
+       serial[0] = 0;
+       return;
+    }
+  }
+
+  if (day == 0)
+  {
+    buf[0] = SETMAXTIME;
+    buf[1] = maxtime;
+    if (serial[0] > 0) {
+      if ((written = write(serial[0], buf, 2)) < 2) 
+      {
+         perror("could not write to arduino\n");
+         fflush(stderr);
+	 close(serial[0]);
+	 serial[0] = 0;
+      }
     }
   }
 }
 
-void close_hw()
+int is_button_request()
 {
-   close(serial);
+  if (button_request)
+  {
+    button_request = 0;
+    return 1;
+  }
+  if (serial[1] > 0)
+  {
+    int c = readchar(1, 1);
+    if (c < -1) 
+    {
+      printf("button connection lost\n");
+      close(serial[1]);
+      serial[1] = 0;
+      return 0;
+    }
+    if (c == '1') return 1;
+  }
+  return 0;
 }
+
+void send_button_request()
+{
+  uint8_t buf[1];
+  if (button_on) buf[0] = BUTTON_OFF_REQUEST;
+  else buf[0] = BUTTON_ON_REQUEST;
+  button_on ^= 1;
+
+  if (serial[0] > 0) {
+    if (write(serial[0], buf, 1) < 1) 
+    {
+       perror("could not write to arduino\n");
+       fflush(stderr);
+       serial[0] = 0;
+       close(serial[0]);
+       return;
+    }
+  }
+}
+
+int button_alive()
+{
+  uint8_t buf[1];
+  buf[0] = '@';
+
+  if (serial[1] > 0) {
+    if (write(serial[1], buf, 1) <= 0) 
+    {
+       perror("could not write to buttoino\n");
+       fflush(stderr);
+       close(serial[1]);
+       serial[1] = 0;
+       return 0;
+    }
+    int alive = readchar(1, 500);
+    while (alive == '1') 
+    {
+      button_request = 1;
+      alive = readchar(1, 500);
+    }
+    if (alive < 0) 
+    {
+      printf("button connection lost\n");
+      close(serial[1]);
+      serial[1] = 0;
+      return 0;
+    }
+    if (alive != '!') 
+    {
+      printf("unexpected response from button: %c\n", alive);
+      return 0;
+    }
+    return 1;
+  }
+  return 0;
+}
+
+void close_hw(int handle)
+{
+   close(serial[handle]);
+}
+

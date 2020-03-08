@@ -9,10 +9,10 @@ void test_full_scale(int channel)
         {
 	  switch (channel)
 	  {
-	    case 1: set_color(1, i, 0, 0, 0); break;
-	    case 2: set_color(1, 0, i, 0, 0); break;
-	    case 3: set_color(1, 0, 0, i, 0); break;
-	    case 4: set_color(1, 0, 0, 0, i); break;
+	    case 1: set_color(1, i, 0, 0, 0, 0); break;
+	    case 2: set_color(1, 0, i, 0, 0, 0); break;
+	    case 3: set_color(1, 0, 0, i, 0, 0); break;
+	    case 4: set_color(1, 0, 0, 0, i, 0); break;
           }
 	  usleep(30000);
 	  if (i % 5 == 0) printf("%d\n", i);
@@ -22,10 +22,10 @@ void test_full_scale(int channel)
         {
 	  switch (channel)
 	  {
-	    case 1: set_color(1, i, 0, 0, 0); break;
-	    case 2: set_color(1, 0, i, 0, 0); break;
-	    case 3: set_color(1, 0, 0, i, 0); break;
-	    case 4: set_color(1, 0, 0, 0, i); break;
+	    case 1: set_color(1, i, 0, 0, 0, 0); break;
+	    case 2: set_color(1, 0, i, 0, 0, 0); break;
+	    case 3: set_color(1, 0, 0, i, 0, 0); break;
+	    case 4: set_color(1, 0, 0, 0, i, 0); break;
           }
 	  usleep(30000);
 	  if (i % 5 == 0) printf("%d\n", i);
@@ -37,14 +37,14 @@ void test_full_scale(int channel)
 int main()
 {
 	printf("connecting arduino...");
-	while (!init_hw()) { printf("."); fflush(stdout); }
+	while (!init_hw(0)) { printf("."); fflush(stdout); }
 
 	test_full_scale(1);
 	test_full_scale(2);
 	test_full_scale(3);
 	test_full_scale(4);
 
-	close_hw();
+	close_hw(0);
 
 	return 0;
 }
