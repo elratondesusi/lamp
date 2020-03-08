@@ -4,11 +4,26 @@
 Set color now: 
 <form action="setcolor.php" method="post" name="setcolorform">
 <input type="hidden" name="day" value="1">
-red: <input type="text" name="red" size="5"><br>
-warm: <input type="text" name="warm" size="5"><br>
-cold1: <input type="text" name="cold1" size="5"><br>
-cold2: <input type="text" name="cold2" size="5"><br>
-<input type="submit" name="submit" value="set">
+<input type="hidden" name="maxtime" value="0">
+<table><tr>
+<td align="right">red:</td><td><input type="text" name="red" id="red" size="5" value="255"><br>
+</td></tr><tr>
+<td align="right">warm:</td><td><input type="text" name="warm" id="warm" size="5" value="255"><br>
+</td></tr><tr>
+<td align="right">cold1:</td><td><input type="text" name="cold1" id="cold1" size="5" value="0"><br>
+</td></tr><tr>
+<td align="right">cold2:</td><td><input type="text" name="cold2" id="cold2" size="5" value="0"><br>
+</td></tr><tr>
+<td colspan="2"><input type="submit" name="submit" value="set">
+</td></tr><tr>
+<td colspan="2"> 
+<button onClick="red.value='255'; warm.value='0'; cold1.value='0'; cold2.value='0'; return false;">Full RED</button>
+<button onClick="red.value='255'; warm.value='255'; cold1.value='255'; cold2.value='255'; return false;">Full ALL</button>
+<button onClick="red.value='0'; warm.value='255'; cold1.value='0'; cold2.value='0'; return false;">Full WARM</button>
+<button onClick="red.value='0'; warm.value='0'; cold1.value='255'; cold2.value='255'; return false;">Full COLD</button>
+<button onClick="red.value='0'; warm.value='0'; cold1.value='0'; cold2.value='0'; return false;">ALL OFF</button>
+</td></tr></table>
 </form>
+All values are integers 0-255.
 </body>
 </html>
