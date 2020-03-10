@@ -14,8 +14,13 @@
 #define BUTTON_ON_REQUEST 'B'
 #define BUTTON_OFF_REQUEST 'R'
 
+// to make /dev/lamp available, put the following into a new file /etc/udev/rules.d/12-lamp.rules:
+//
+// # recognize arduino lamp controller and put it at /dev/lamp
+// ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK="lamp"
+
 static int serial[2] = { 0, 0 };
-static char *port[2] = { "/dev/ttyUSB0", "/dev/rfcomm0" };
+static char *port[2] = { "/dev/lamp", "/dev/rfcomm0" };
 static int button_on = 0;
 static int button_request = 0;
 

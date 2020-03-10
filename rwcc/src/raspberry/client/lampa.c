@@ -272,6 +272,8 @@ void *button_thread(void *args)
       {
         send_button_request();
 	printf("%s: button\n", current_time());
+	char *statusmsg = "status button pressed";
+        send_packet(statusmsg, strlen(statusmsg));
       }
       usleep(200000UL);
     }
