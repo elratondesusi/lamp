@@ -7,6 +7,9 @@
 #define SWITCH_COLD1 7
 #define SWITCH_COLD2 8
 
+#define SIRENE 16
+#define RESET_SIGNAL 17
+
 // wire connections on model #001
 //
 // 3 - red (cold2 pwm)
@@ -26,6 +29,9 @@ uint8_t bak_red, bak_warm, bak_cold1, bak_cold2;
 uint32_t time_break_started;
 uint32_t max_break_time_in_minutes;
 uint8_t toilet_break;
+
+uint8_t last_reset_signal;
+uint32_t last_time_reset_signal_changed;
 
 void switch_if_needed(uint8_t val, uint8_t newval, uint8_t pin_number)
 {
@@ -60,16 +66,7 @@ void setColor(uint8_t newr, uint8_t neww, uint8_t newc1, uint8_t newc2)
   {
     c2 = newc2;
     analogWrite(COLD2, c2);
-  }  
-  Serial.print("R=");
-  Serial.print(r);
-  Serial.print(",W=");
-  Serial.print(w);
-  Serial.print(",C1=");
-  Serial.print(c1);
-  Serial.print(",C2=");
-  Serial.print(c2);
-  Serial.println();
+  }
 }
 
 void setup() 
@@ -82,6 +79,8 @@ void setup()
   pinMode(SWITCH_WARM, OUTPUT);
   pinMode(SWITCH_COLD1, OUTPUT);
   pinMode(SWITCH_COLD2, OUTPUT);
+  pinMode(SIRENE, OUTPUT);
+  pinMode(RESET_SIGNAL, INPUT_PULLUP);
   digitalWrite(SWITCH_RED, HIGH);
   digitalWrite(SWITCH_WARM, HIGH);
   digitalWrite(SWITCH_COLD1, HIGH);
@@ -94,6 +93,10 @@ void setup()
   switch_red = 200; switch_warm = 0; switch_cold1 = 0; switch_cold2 = 0;
   max_break_time_in_minutes = 5;
   toilet_break = 0;
+
+  delay(50);
+  last_reset_signal = digitalRead(RESET_SIGNAL);
+  last_time_reset_signal_changed = millis();
 }
 
 char readchar()
@@ -122,11 +125,42 @@ void toilet_break_stop()
   toilet_break = 0;
 }
 
+void reset_beep()
+{
+  tone(SIRENE, 1760, 50);
+  delay(100);
+  tone(SIRENE, 1760, 50);
+  delay(60);
+}    
+
+void send_reset_signal()
+{
+  Serial.write("*****");  
+}
+
+void half_beep()
+{
+  tone(SIRENE, 880, 50);
+  delay(60);
+}
+
 void loop() 
 {
-  if (millis() - time_break_started > max_time_break_in_minutes * 60L * 1000L)
+  if (millis() - time_break_started > max_break_time_in_minutes * 60L * 1000L)
     toilet_break_stop();
 
+  uint8_t new_signal = digitalRead(RESET_SIGNAL);
+  if ((new_signal != last_reset_signal) && (millis() - last_time_reset_signal_changed > 200))
+  {
+    last_reset_signal ^= 1;
+    if (last_reset_signal) 
+    {
+      reset_beep();
+      send_reset_signal();
+    }
+    else half_beep();
+    last_time_reset_signal_changed = millis();
+  }
   if (Serial.available())
   {
     char c = Serial.read();
@@ -201,7 +235,20 @@ void loop()
       if (readchar() == 'K') 
       if (readchar() == 'E') 
       if (readchar() == '?')
+      {
          Serial.print("SHAKE!");
+         reset_beep();
+      }
+    }
+    else if (c == 'T')
+    {
+      int n = readchar();
+      switch (n) {
+        case 1: tone(SIRENE, 440, 50); delay(100); break;
+        case 2: tone(SIRENE, 262, 50); delay(100); break;
+        case 3: tone(SIRENE, 330, 50); delay(100); break;
+        case 4: tone(SIRENE, 220, 50); delay(100); break;
+      }
     }
   }
 }
