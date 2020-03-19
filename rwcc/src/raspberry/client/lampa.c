@@ -489,51 +489,55 @@ int main(int argc , char *argv[])
   {
     while (!init_hw(0)) { printf("."); fflush(stdout); }
 
-    socket_desc = socket(AF_INET, SOCK_STREAM, 0);
-    if (socket_desc == -1)
+    while(1)
     {
+      socket_desc = socket(AF_INET, SOCK_STREAM, 0);
+      if (socket_desc == -1)
+      {
     	perror("Could not create socket");
-    }
+      }
     	
-    server.sin_addr.s_addr = inet_addr("158.195.89.120");
-    server.sin_family = AF_INET;
-    server.sin_port = htons( 9877 );
+      server.sin_addr.s_addr = inet_addr("158.195.89.120");
+      server.sin_family = AF_INET;
+      server.sin_port = htons( 9877 );
 
-    if (connect(socket_desc, (struct sockaddr *)&server , sizeof(server)) < 0)
-    {
+      if (connect(socket_desc, (struct sockaddr *)&server , sizeof(server)) < 0)
+      {
     	printf("connect error\n");
     	fflush(stdout);
 	sleep(5);
 	continue;
-    }
+      }
     
-    printf("sending login packet...\n");
-    fflush(stdout);
-    if (send_packet(login_request_packet, strlen(login_request_packet))) 
-    {
+      printf("sending login packet...\n");
+      fflush(stdout);
+      if (send_packet(login_request_packet, strlen(login_request_packet))) 
+      {
         close(socket_desc);
 	continue;
-    }
+      }
 
-    printf("sent, waiting for confirmation...\n");
-    fflush(stdout);
+      printf("sent, waiting for confirmation...\n");
+      fflush(stdout);
     
-    if (recv_packet()) 
-    {
-      close(socket_desc);
-      continue;
-    }
+      if (recv_packet()) 
+      {
+        close(socket_desc);
+        continue;
+      }
    
-    if (strcmp(packet, login_response_packet) != 0)
-    {
+      if (strcmp(packet, login_response_packet) != 0)
+      {
         printf("confirmation unrecognized\n");
         fflush(stdout);
 	close(socket_desc);
         continue;
-    }
+      }
     
-    printf("handshake ok\n");
-    fflush(stdout);
+      printf("handshake ok\n");
+      fflush(stdout);
+      break;
+    }
 
     connected = 1;
     send_beep(3);
