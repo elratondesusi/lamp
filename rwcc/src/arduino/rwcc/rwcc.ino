@@ -7,8 +7,8 @@
 #define SWITCH_COLD1 7
 #define SWITCH_COLD2 8
 
-#define SIRENE 16
-#define RESET_SIGNAL 17
+#define SIRENE 12
+#define RESET_SIGNAL 4
 
 // wire connections on model #001
 //
@@ -130,7 +130,7 @@ void reset_beep()
   tone(SIRENE, 1760, 50);
   delay(100);
   tone(SIRENE, 1760, 50);
-  delay(60);
+  delay(100);
 }    
 
 void send_reset_signal()
@@ -141,7 +141,7 @@ void send_reset_signal()
 void half_beep()
 {
   tone(SIRENE, 880, 50);
-  delay(60);
+  delay(100);
 }
 
 void loop() 
@@ -236,8 +236,8 @@ void loop()
       if (readchar() == 'E') 
       if (readchar() == '?')
       {
-         Serial.print("SHAKE!");
          reset_beep();
+         Serial.print("SHAKE!");
       }
     }
     else if (c == 'T')
