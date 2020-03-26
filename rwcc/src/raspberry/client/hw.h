@@ -15,5 +15,7 @@ void send_button_request();
 int is_reset_signal();
 void send_beep(uint8_t n);
 
+int hw_ping();
+
 #endif
 

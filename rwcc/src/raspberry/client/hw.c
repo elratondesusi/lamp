@@ -267,6 +267,25 @@ int button_alive()
   return 0;
 }
 
+int hw_ping()
+{
+  uint8_t buf = '@';
+
+  if (serial[0] > 0) {
+    if (write(serial[0], &buf, 1) < 1) 
+    {
+       perror("could not write to arduino\n");
+       fflush(stderr);
+       close(serial[0]);
+       serial[0] = 0;
+       return 0;
+    }
+  }
+  char c = readchar(0, 100);
+  if (c == '#') return 1;
+  else return 0;
+}
+
 void close_hw(int handle)
 {
    close(serial[handle]);
