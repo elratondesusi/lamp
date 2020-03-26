@@ -250,5 +250,7 @@ void loop()
         case 4: tone(SIRENE, 220, 50); delay(100); break;
       }
     }
+    else if (c == '@')
+      Serial.print('#');
   }
 }

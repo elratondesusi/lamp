@@ -9,6 +9,8 @@
 #include <time.h>
 #include <sys/time.h>
 
+#include "hw.h"
+
 #define SETCOLOR 'C'
 #define SETMAXTIME 'M'
 #define BUTTON_ON_REQUEST 'B'
@@ -54,6 +56,39 @@ int readchar(int handle, int timeout)
     return -1;
 }
 
+int is_reset_signal()
+{
+  char c = readchar(0, 1);
+  if (c == '*')
+  {
+	  c = readchar(0, 100);
+	  if (c == '*') 
+	  {
+		  send_beep(2);
+		  return 1;
+	  }
+  }
+  return 0;
+}
+
+void send_beep(uint8_t n)
+{
+  uint8_t buf[2];
+  buf[0] = 'T';
+  buf[1] = n;
+
+  if (serial[0] > 0) {
+    if (write(serial[0], buf, 2) < 2) 
+    {
+       perror("could not write to arduino\n");
+       fflush(stderr);
+       close(serial[0]);
+       serial[0] = 0;
+       return;
+    }
+  }
+}
+
 int init_hw(int handle)
 {
   char *shakebuf = "SHAKE?";
@@ -74,7 +109,9 @@ int init_hw(int handle)
     if ((written = write(serial[handle], shakebuf + (part * 2), 2)) < 2) 
     {
 	  perror("could not shake with arduino\n");
+	  printf("handle=%d\n", handle);
 	  fflush(stderr);
+	  fflush(stdout);
 	  close(serial[handle]);
 	  serial[handle] = 0;
 	  return 0;
@@ -102,6 +139,7 @@ int init_hw(int handle)
   {
 	  printf("arduino %d connected\n", handle);
 	  fflush(stdout);
+	  if (handle == 1) send_beep(1);
 	  return 1;
   }
 

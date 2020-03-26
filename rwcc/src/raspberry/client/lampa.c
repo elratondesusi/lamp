@@ -6,12 +6,16 @@
 #include <arpa/inet.h>	//inet_addr
 #include <time.h>
 #include <pthread.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "hw.h"
 
 #define max_packet_size 200000
 
 #define MAX_PLAN_SIZE 200
+#define PLAN_PERSISTENT_FILE "/home/pi/plan.cfg"
+#define PLANON_PERSISTENT_FILE "/home/pi/plan.onoff"
 
 static char *login_request_packet = "lampa calling, shake hand?";
 static char *login_response_packet = "welcome lampa, hand shake!";
@@ -19,7 +23,7 @@ static char *login_response_packet = "welcome lampa, hand shake!";
 static int socket_desc;
 static volatile int connected = 0;
 
-static volatile int plan_is_on = 0;
+static volatile int plan_is_on = 1;
 
 //format plan
 //HH:MM RWCC_COLOR MODE
@@ -45,6 +49,23 @@ static int cigs_red_1, cigs_warm_1, cigs_cold1_1, cigs_cold2_1,
            cigs_red_2, cigs_warm_2, cigs_cold1_2, cigs_cold2_2;
 static double cigs_start_time, cigs_total_time;
 
+static char packet[max_packet_size];
+static int len_pckt;
+
+static int current_step;
+static int current_interpolated_goal_step;
+static uint8_t current_red, current_warm, current_cold1, current_cold2;
+
+static char *setcolor_packet = "setcolor";
+static char *planon_packet = "planon";
+static char *planoff_packet = "planoff";
+static char *plantest_packet = "plantest";
+static char *newplan_packet = "newplan:";
+static char *bim_packet = "bim";
+static char *bam_packet = "bam";
+
+void save_planon_status();
+void save_new_plan_to_file();
 
 char *current_time()
 {
@@ -133,13 +154,6 @@ int send_packet(char *packet, int packet_len)
         return 0;
 }
 
-static char packet[max_packet_size];
-static int len_pckt;
-
-static int current_step;
-static int current_interpolated_goal_step;
-static uint8_t current_red, current_warm, current_cold1, current_cold2;
-
 int recv_packet()
 {
         unsigned char *pckt = (unsigned char *)packet;
@@ -157,14 +171,6 @@ int recv_packet()
         return 0;
 }
 
-static char *setcolor_packet = "setcolor";
-static char *planon_packet = "planon";
-static char *planoff_packet = "planoff";
-static char *plantest_packet = "plantest";
-static char *newplan_packet = "newplan:";
-static char *bim_packet = "bim";
-static char *bam_packet = "bam";
-
 void process_packet()
 {
   //printf("process packet %s\n", packet);
@@ -181,12 +187,14 @@ void process_packet()
     printf("%s: planon\n", current_time());
     fflush(stdout);
     plan_is_on = 1;
+    save_planon_status();
   }
   else if (strncmp(packet, planoff_packet, strlen(planoff_packet)) == 0)
   {
     printf("%s: planoff\n", current_time());
     fflush(stdout);
     plan_is_on = 0;
+    save_planon_status();
   }
   else if (strncmp(packet, plantest_packet, strlen(plantest_packet)) == 0)
   {
@@ -198,6 +206,7 @@ void process_packet()
     printf("%s: newplan\n", current_time());
     fflush(stdout);
     set_new_plan(packet + strlen(newplan_packet));
+    save_new_plan_to_file();
   }
   else if (strncmp(packet, bim_packet, strlen(bim_packet)) == 0)
   {
@@ -222,9 +231,10 @@ long time_difference_in_secs(int h1, int m1, int h2, int m2)
 void take_plan_step(int i, time_t t)
 {
   current_step = i;
-  set_color(1, plan_red[i], plan_warm[i], plan_cold1[i], plan_cold2[i], 0);
+  if (plan_is_on)
+    set_color(1, plan_red[i], plan_warm[i], plan_cold1[i], plan_cold2[i], 0);
   char step_description[100];
-  sprintf(step_description, "status step %02d [%02x,%02x,%02x,%02x,%d]", i, plan_red[i], plan_warm[i], plan_cold1[i], plan_cold2[i], plan_interpolate[i]);
+  sprintf(step_description, "status step %02d [%02x,%02x,%02x,%02x,%d] plan on: %d", i, plan_red[i], plan_warm[i], plan_cold1[i], plan_cold2[i], plan_interpolate[i], plan_is_on);
   send_packet(step_description, strlen(step_description));
   printf("%s: %s\n", current_time(), step_description);
   fflush(stdout);
@@ -270,11 +280,13 @@ void *button_thread(void *args)
 
       if (is_button_request()) 
       {
+	char statusmsg[40];
         send_button_request();
 	printf("%s: button\n", current_time());
-	char *statusmsg = "status button pressed";
+	sprintf(statusmsg, "status button pressed, plan on: %d", plan_is_on); 
         send_packet(statusmsg, strlen(statusmsg));
       }
+
       usleep(200000UL);
     }
   }
@@ -285,6 +297,22 @@ void *agenda_thread(void *args)
   adopt_new_plan = 0;
   while (connected)
   {
+    if (is_reset_signal()) 
+    {
+	printf("%s: manual shutdown\n", current_time());
+	fflush(stdout);
+        send_packet("manual shutdown", 15);
+	usleep(200000);
+
+        close_hw(0);
+        close(socket_desc);
+
+        save_planon_status();
+	usleep(400000);
+
+	execlp("sudo", "sudo", "shutdown", "now", 0);
+    }
+
     sleep(1);
     time_t t;
     time(&t);
@@ -330,7 +358,8 @@ void *agenda_thread(void *args)
             int warm_now = (int)(0.5 + cigs_warm_1 * cigs_adv_inverse + cigs_warm_2 * cigs_advancement);
 	    int cold1_now = (int)(0.5 + cigs_cold1_1 * cigs_adv_inverse + cigs_cold1_2 * cigs_advancement);
 	    int cold2_now = (int)(0.5 + cigs_cold2_1 * cigs_adv_inverse + cigs_cold2_2 * cigs_advancement);
-	    set_color(1, red_now, warm_now, cold1_now, cold2_now, 0);
+	    if (plan_is_on)
+	      set_color(1, red_now, warm_now, cold1_now, cold2_now, 0);
             printf("%s: %02d [%02x,%02x,%02x,%02x]\n", current_time(), current_interpolated_goal_step, red_now, warm_now, cold1_now, cold2_now);
             fflush(stdout);
     }
@@ -359,60 +388,159 @@ void start_button_thread()
   fflush(stdout);
 }
 
+void save_planon_status()
+{
+  FILE *f = fopen(PLANON_PERSISTENT_FILE, "w+");
+  if (f == 0)
+  {
+    perror("could not open plan status file for writing, not writing it");
+    return;
+  }
+  uint8_t buf = (plan_is_on + '0');
+
+  if (fwrite(&buf, 1, 1, f) < 1)
+    perror("could not write to plan status file");
+
+  printf("%s: saved plan on status %d\n", current_time(), plan_is_on);
+  fclose(f);
+}
+
+void save_new_plan_to_file()
+{
+  FILE *f = fopen(PLAN_PERSISTENT_FILE, "w+");
+  if (f == 0)
+  {
+    perror("could not open plan file for writing, not writing it");
+    return;
+  }
+
+  int filesize = strlen(packet);
+  if (fwrite(packet, 1, filesize, f) < filesize)
+    perror("could not write to plan file");
+
+  printf("%s: saved new plan to file\n", current_time());
+  fclose(f);
+}
+
+void try_to_load_plan_from_file()
+{ 
+  FILE *f;
+  struct stat filestat;
+  int filesize;
+
+  if (stat(PLANON_PERSISTENT_FILE, &filestat))
+    printf("planon file not found, not reading plan status\n");
+  else
+  {
+    filesize = filestat.st_size;
+    f = fopen(PLANON_PERSISTENT_FILE, "r");
+    if (f == 0)
+      perror("could not open plan status file, not reading plan status");
+    else
+    {
+      if (!fread(packet, 1, 1, f))
+        perror("could not read from plan status file");
+      else
+      {
+        plan_is_on = (packet[0] - '0');
+	printf("read from plan status file: plan_is_on=%d\n", plan_is_on);
+      }
+      fclose(f);
+    }
+  }
+
+  if (stat(PLAN_PERSISTENT_FILE, &filestat))
+  {
+    printf("plan file not found, not loading plan\n");
+    return;
+  }
+  filesize = filestat.st_size;
+  if (filesize >= max_packet_size)
+  {
+    printf("plan file too large %d, max=%d\n", filesize, max_packet_size - 1);
+    return;
+  }
+  
+  f = fopen(PLAN_PERSISTENT_FILE, "r");
+  if (f == 0) 
+  {
+    perror("could not open plan file");
+    return;
+  }
+  if (fread(packet, 1, filesize, f) < filesize)
+  {
+     perror("could not read plan file");
+     fclose(f);
+     return;
+  }
+  packet[filesize] = 0;
+  fclose(f);
+
+  printf("found stored plan, loading it...\n");
+  set_new_plan(packet);
+}
+
 int main(int argc , char *argv[])
 {
+  try_to_load_plan_from_file();
+
   struct sockaddr_in server;
   while (1)
   {
     while (!init_hw(0)) { printf("."); fflush(stdout); }
 
-    socket_desc = socket(AF_INET, SOCK_STREAM, 0);
-    if (socket_desc == -1)
+    while(1)
     {
+      socket_desc = socket(AF_INET, SOCK_STREAM, 0);
+      if (socket_desc == -1)
+      {
     	perror("Could not create socket");
-    }
+      }
     	
-    server.sin_addr.s_addr = inet_addr("158.195.89.120");
-    server.sin_family = AF_INET;
-    server.sin_port = htons( 9877 );
+      server.sin_addr.s_addr = inet_addr("158.195.89.120");
+      server.sin_family = AF_INET;
+      server.sin_port = htons( 9877 );
 
-    if (connect(socket_desc, (struct sockaddr *)&server , sizeof(server)) < 0)
-    {
+      if (connect(socket_desc, (struct sockaddr *)&server , sizeof(server)) < 0)
+      {
     	printf("connect error\n");
     	fflush(stdout);
 	sleep(5);
 	continue;
-    }
+      }
     
-    printf("sending login packet...\n");
-    fflush(stdout);
-    if (send_packet(login_request_packet, strlen(login_request_packet))) 
-    {
+      printf("sending login packet...\n");
+      fflush(stdout);
+      if (send_packet(login_request_packet, strlen(login_request_packet))) 
+      {
         close(socket_desc);
 	continue;
-    }
+      }
 
-    printf("sent, waiting for confirmation...\n");
-    fflush(stdout);
+      printf("sent, waiting for confirmation...\n");
+      fflush(stdout);
     
-    if (recv_packet()) 
-    {
-      close(socket_desc);
-      continue;
-    }
+      if (recv_packet()) 
+      {
+        close(socket_desc);
+        continue;
+      }
    
-    if (strcmp(packet, login_response_packet) != 0)
-    {
+      if (strcmp(packet, login_response_packet) != 0)
+      {
         printf("confirmation unrecognized\n");
         fflush(stdout);
 	close(socket_desc);
         continue;
-    }
+      }
     
-    printf("handshake ok\n");
-    fflush(stdout);
+      printf("handshake ok\n");
+      fflush(stdout);
+      break;
+    }
 
     connected = 1;
+    send_beep(3);
 
     start_agenda_thread();
     start_button_thread();
