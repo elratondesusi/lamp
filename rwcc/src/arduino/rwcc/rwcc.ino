@@ -146,8 +146,9 @@ void half_beep()
 
 void loop() 
 {
-  if (millis() - time_break_started > max_break_time_in_minutes * 60L * 1000L)
-    toilet_break_stop();
+  if (toilet_break)
+    if (millis() - time_break_started > max_break_time_in_minutes * 60L * 1000L)
+      toilet_break_stop();
 
   uint8_t new_signal = digitalRead(RESET_SIGNAL);
   if ((new_signal != last_reset_signal) && (millis() - last_time_reset_signal_changed > 200))
