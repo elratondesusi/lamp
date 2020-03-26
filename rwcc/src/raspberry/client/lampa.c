@@ -294,14 +294,13 @@ void *button_thread(void *args)
 
 void *agenda_thread(void *args)
 {
-  adopt_new_plan = 0;
   while (connected)
   {
     if (is_reset_signal()) 
     {
 	printf("%s: manual shutdown\n", current_time());
 	fflush(stdout);
-        send_packet("manual shutdown", 15);
+        send_packet("status manual shutdown", 15);
 	usleep(200000);
 
         close_hw(0);
@@ -350,6 +349,8 @@ void *agenda_thread(void *args)
 
     if (current_interpolated_goal_step > 0)
     {
+	    static int last_current_interpolated_goal_step = -1;
+	    static uint8_t last_red_now = -1, last_warm_now = -1, last_cold1_now = -1, last_cold2_now = -1;
 	    long cigs_seconds_from_start = t - cigs_start_time;
 	    double cigs_advancement = cigs_seconds_from_start / (double)cigs_total_time;
 	    double cigs_adv_inverse = 1 - cigs_advancement;
@@ -360,8 +361,17 @@ void *agenda_thread(void *args)
 	    int cold2_now = (int)(0.5 + cigs_cold2_1 * cigs_adv_inverse + cigs_cold2_2 * cigs_advancement);
 	    if (plan_is_on)
 	      set_color(1, red_now, warm_now, cold1_now, cold2_now, 0);
-            printf("%s: %02d [%02x,%02x,%02x,%02x]\n", current_time(), current_interpolated_goal_step, red_now, warm_now, cold1_now, cold2_now);
-            fflush(stdout);
+	    if ((current_interpolated_goal_step != last_current_interpolated_goal_step) ||
+		(red_now != last_red_now) || (warm_now != last_warm_now) || (cold1_now != last_cold1_now) || (cold2_now != last_cold2_now))
+	    {
+              printf("%s: %02d [%02x,%02x,%02x,%02x]\n", current_time(), current_interpolated_goal_step, red_now, warm_now, cold1_now, cold2_now);
+              fflush(stdout);
+	      last_current_interpolated_goal_step = current_interpolated_goal_step;
+	      last_red_now == red_now;
+	      last_warm_now = warm_now;
+	      last_cold1_now = cold1_now;
+	      last_cold2_now = cold2_now;
+	    }
     }
   }
 }
@@ -482,6 +492,7 @@ void try_to_load_plan_from_file()
 
 int main(int argc , char *argv[])
 {
+  adopt_new_plan = 0;
   try_to_load_plan_from_file();
 
   struct sockaddr_in server;
